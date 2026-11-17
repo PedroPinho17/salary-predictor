@@ -4,22 +4,24 @@
 
 Prevê o salário anual de um programador na Europa a partir do país, anos de experiência, função, formação e linguagens que usa.
 
-Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (9 684 respostas de 19 países europeus), disponibilizado através de uma API REST e testado com ofertas de emprego reais em Portugal guardadas em PostgreSQL.
+Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (9 684 respostas de 19 países europeus), com uma interface web, uma API REST e um teste com ofertas de emprego reais em Portugal guardadas em PostgreSQL.
 
 <p align="center">
-  <img src="docs/media/demo.gif" alt="Demo: chamar a API a partir da documentação interativa para prever salários" width="900">
+  <img src="docs/media/demo.gif" alt="Demo: mudar país, experiência, função e linguagens e ver a estimativa a atualizar" width="900">
 </p>
-<p align="center"><sub>Demo a 2× · <a href="docs/media/demo.mp4">vídeo em qualidade total</a> · documentação interativa da API em <code>/docs</code></sub></p>
+<p align="center"><sub>Demo a 1,5× · <a href="docs/media/demo.mp4">vídeo em qualidade total</a></sub></p>
 
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white)
 ![pandas](https://img.shields.io/badge/pandas-data-150458?logo=pandas&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg-4169E1?logo=postgresql&logoColor=white)
-![pytest](https://img.shields.io/badge/testes-31%20a%20passar-0A9EDC?logo=pytest&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-sem%20framework-F7DF1E?logo=javascript&logoColor=black)
+![pytest](https://img.shields.io/badge/testes-36%20a%20passar-0A9EDC?logo=pytest&logoColor=white)
 
 ## Funcionalidades
 
+- **Interface web**: preenches o perfil e a estimativa atualiza na hora, com um gráfico da evolução do salário com a experiência. Português e inglês, € ou $, modo escuro, funciona no telemóvel.
 - **Previsão de salário**: salário anual e mensal (USD) para qualquer combinação de país, experiência, função, formação, trabalho remoto e linguagens.
 - **Dois modelos, comparados de forma justa**: Random Forest e Gradient Boosting, avaliados contra uma base (mediana) com validação cruzada de 5 partições.
 - **API REST**: FastAPI com documentação interativa. `POST /predict` para um perfil, `POST /estimate` para uma oferta de emprego (título + skills do CV, resultado em €).
@@ -30,9 +32,11 @@ Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 20
 
 ## Capturas de ecrã
 
-| Previsão para um back-end developer na Alemanha | Valores desconhecidos são rejeitados com um erro claro |
+| Modo claro (português) | Modo escuro (inglês) |
 | --- | --- |
-| ![POST /predict a devolver o salário anual e mensal](docs/media/predict.png) | ![POST /predict a devolver 422 para um país desconhecido](docs/media/validation.png) |
+| ![Interface web em modo claro](docs/media/app.png) | ![Interface web em modo escuro](docs/media/app-dark.png) |
+
+<p align="center"><img src="docs/media/app-mobile.png" alt="Interface web no telemóvel" width="300"></p>
 
 ## Resultados
 
@@ -80,7 +84,8 @@ flowchart LR
     P --> M[(salary_model.joblib)]
     M --> C[CLI]
     M --> A[FastAPI]
-    A -- /predict /estimate --> U[Cliente / browser]
+    A -- página / + /predict /curve --> U[Browser<br/>HTML + CSS + JS]
+    A -- /predict /estimate --> X[Outros clientes]
     R[(Radar<br/>PostgreSQL)] -- ofertas --> CR[compare_radar.py]
     M --> CR
     CR --> E[Erro vs. salários reais]
@@ -98,6 +103,8 @@ flowchart LR
 | Validação cruzada em vez de uma só divisão | 5 partições dão uma média e um desvio, o que mostra que os dois modelos estão mesmo empatados. |
 | Rejeitar valores desconhecidos com 422 | O encoder ignoraria em silêncio uma categoria desconhecida e devolvia na mesma um número. Um erro explícito é mais seguro. |
 | `features.py` partilhado | Treino, CLI, API e `compare_radar` constroem as features da mesma forma, por isso não ficam dessincronizados. |
+| HTML/CSS/JS simples servido pelo FastAPI | Um formulário não precisa de React nem de build. Um só comando arranca tudo, e a página só oferece valores que o modelo conhece (vêm de `GET /options`). |
+| Endpoint `/curve` | O gráfico precisa de 31 previsões. Um pedido com uma só chamada a `model.predict` é muito mais rápido que 31 pedidos. |
 | Testes com um modelo sintético | Os testes correm em menos de 2 segundos e não precisam do survey, do modelo treinado nem da base de dados. |
 
 ## Dados
@@ -114,6 +121,7 @@ Os dados do survey são publicados pela Stack Overflow sob a licença [Open Data
 
 | Camada | Tecnologia |
 | --- | --- |
+| Frontend | HTML, CSS, JavaScript (sem framework), gráfico SVG feito à mão |
 | Modelo | scikit-learn (Random Forest, HistGradientBoosting), pandas, NumPy |
 | API | FastAPI, Pydantic, Uvicorn |
 | Dados | Stack Overflow Survey (CSV), PostgreSQL com psycopg |
@@ -123,8 +131,10 @@ Os dados do survey são publicados pela Stack Overflow sob a licença [Open Data
 ## Como correr
 
 1. Instala o [uv](https://docs.astral.sh/uv/) e depois as dependências: `uv sync`
-2. Prevê (usa o modelo incluído): `uv run salary-predictor --years 2`
-3. API: `uv run uvicorn salary_predictor.api:app --reload` e abre http://127.0.0.1:8000/docs
+2. Arranca a aplicação: `uv run uvicorn salary_predictor.api:app --reload`
+   - Interface web: http://127.0.0.1:8000
+   - Documentação da API: http://127.0.0.1:8000/docs
+3. Ou prevê no terminal: `uv run salary-predictor --years 2`
 4. Treinar de novo (opcional): `uv run python -m salary_predictor.train` (`--model gb` para Gradient Boosting, `--compare` para avaliar todos)
 5. Testes: `uv run pytest`
 6. Comparar com o Radar: `uv run python -m salary_predictor.compare_radar [--compare]`. Precisa de `DATABASE_URL` no ambiente ou num `.env`:
@@ -140,6 +150,8 @@ Os dados do survey são publicados pela Stack Overflow sob a licença [Open Data
 | `GET /health` | Verifica se a API está a correr |
 | `GET /options` | Valores aceites para país, função, formação, trabalho remoto e linguagens |
 | `POST /predict` | Salário anual e mensal (USD) para um perfil |
+| `POST /curve` | Salário previsto de 0 a 30 anos de experiência, para o gráfico |
+| `GET /meta` | Taxa USD→EUR e erro médio do modelo |
 | `POST /estimate` | Salário anual (€) para uma oferta em Portugal, a partir do título e das tuas skills |
 
 ```json
@@ -148,6 +160,10 @@ POST /predict
 
 → { "salario_anual_usd": 29945, "salario_mensal_usd": 2495 }
 ```
+
+| Previsão para um back-end developer na Alemanha | Valores desconhecidos são rejeitados com um erro claro |
+| --- | --- |
+| ![POST /predict a devolver o salário anual e mensal](docs/media/predict.png) | ![POST /predict a devolver 422 para um país desconhecido](docs/media/validation.png) |
 
 ## Limitações
 

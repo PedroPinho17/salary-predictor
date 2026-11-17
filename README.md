@@ -4,22 +4,24 @@
 
 Predicts the annual salary of a software developer in Europe from their country, years of experience, role, education and the programming languages they use.
 
-A machine-learning model trained on the [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (9,684 responses from 19 European countries), served through a REST API and checked against real Portuguese job offers stored in PostgreSQL.
+A machine-learning model trained on the [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (9,684 responses from 19 European countries), with a web interface, a REST API, and a check against real Portuguese job offers stored in PostgreSQL.
 
 <p align="center">
-  <img src="docs/media/demo.gif" alt="Demo: calling the API from the interactive docs to predict salaries" width="900">
+  <img src="docs/media/demo.gif" alt="Demo: changing country, experience, role and languages and watching the estimate update" width="900">
 </p>
-<p align="center"><sub>Demo at 2× speed · <a href="docs/media/demo.mp4">full-quality video</a> · interactive API docs at <code>/docs</code></sub></p>
+<p align="center"><sub>Demo at 1.5× speed · <a href="docs/media/demo.mp4">full-quality video</a></sub></p>
 
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white)
 ![pandas](https://img.shields.io/badge/pandas-data-150458?logo=pandas&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg-4169E1?logo=postgresql&logoColor=white)
-![pytest](https://img.shields.io/badge/tests-31%20passing-0A9EDC?logo=pytest&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-no%20framework-F7DF1E?logo=javascript&logoColor=black)
+![pytest](https://img.shields.io/badge/tests-36%20passing-0A9EDC?logo=pytest&logoColor=white)
 
 ## Features
 
+- **Web interface**: fill in your profile and the estimate updates instantly, with a chart of how the salary grows with experience. Portuguese and English, € or $, dark mode, works on mobile.
 - **Salary prediction**: annual and monthly salary (USD) for any combination of country, experience, role, education, remote work and languages.
 - **Two models, compared fairly**: Random Forest and Gradient Boosting, evaluated against a median baseline with 5-fold cross-validation.
 - **REST API**: FastAPI with interactive docs. `POST /predict` for a developer profile, `POST /estimate` for a job offer (title + CV skills, result in €).
@@ -30,9 +32,11 @@ A machine-learning model trained on the [Stack Overflow Developer Survey 2025](h
 
 ## Screenshots
 
-| Prediction for a back-end developer in Germany | Unknown values are rejected with a clear error |
+| Light mode (Portuguese) | Dark mode (English) |
 | --- | --- |
-| ![POST /predict returning the annual and monthly salary](docs/media/predict.png) | ![POST /predict returning a 422 for an unknown country](docs/media/validation.png) |
+| ![Web interface in light mode](docs/media/app.png) | ![Web interface in dark mode](docs/media/app-dark.png) |
+
+<p align="center"><img src="docs/media/app-mobile.png" alt="Web interface on a phone" width="300"></p>
 
 ## Results
 
@@ -80,7 +84,8 @@ flowchart LR
     P --> M[(salary_model.joblib)]
     M --> C[CLI]
     M --> A[FastAPI]
-    A -- /predict /estimate --> U[Client / browser]
+    A -- / page + /predict /curve --> U[Browser<br/>HTML + CSS + JS]
+    A -- /predict /estimate --> X[Other clients]
     R[(Radar<br/>PostgreSQL)] -- job offers --> CR[compare_radar.py]
     M --> CR
     CR --> E[Error vs. real salaries]
@@ -98,6 +103,8 @@ flowchart LR
 | Cross-validation instead of one split | 5 folds give a mean and a spread, which shows the two models are really tied. |
 | Reject unknown values with 422 | The encoder would silently ignore an unknown category and still return a number. An explicit error is safer. |
 | Shared `features.py` | Training, CLI, API and `compare_radar` build features the same way, so they can't drift apart. |
+| Plain HTML/CSS/JS served by FastAPI | One form doesn't need React or a build step. One command starts the whole app, and the page only offers values the model knows (from `GET /options`). |
+| `/curve` endpoint | The chart needs 31 predictions. One request with one `model.predict` call is much faster than 31 requests. |
 | Tests with a synthetic model | Tests run in under 2 seconds and don't need the survey, the trained model or the database. |
 
 ## Data
@@ -114,6 +121,7 @@ The survey data is published by Stack Overflow under the [Open Database License 
 
 | Layer | Technology |
 | --- | --- |
+| Frontend | HTML, CSS, JavaScript (no framework), hand-drawn SVG chart |
 | Model | scikit-learn (Random Forest, HistGradientBoosting), pandas, NumPy |
 | API | FastAPI, Pydantic, Uvicorn |
 | Data | Stack Overflow Survey (CSV), PostgreSQL via psycopg |
@@ -123,8 +131,10 @@ The survey data is published by Stack Overflow under the [Open Database License 
 ## Getting started
 
 1. Install [uv](https://docs.astral.sh/uv/), then the dependencies: `uv sync`
-2. Predict (uses the bundled model): `uv run salary-predictor --years 2`
-3. API: `uv run uvicorn salary_predictor.api:app --reload` and open http://127.0.0.1:8000/docs
+2. Start the app: `uv run uvicorn salary_predictor.api:app --reload`
+   - Web interface: http://127.0.0.1:8000
+   - API docs: http://127.0.0.1:8000/docs
+3. Or predict in the terminal: `uv run salary-predictor --years 2`
 4. Retrain (optional): `uv run python -m salary_predictor.train` (`--model gb` for Gradient Boosting, `--compare` to evaluate all)
 5. Tests: `uv run pytest`
 6. Compare against Radar: `uv run python -m salary_predictor.compare_radar [--compare]`. Requires `DATABASE_URL` in the environment or in a `.env` file:
@@ -140,6 +150,8 @@ The survey data is published by Stack Overflow under the [Open Database License 
 | `GET /health` | Health check |
 | `GET /options` | Accepted values for country, role, education, remote work and languages |
 | `POST /predict` | Annual and monthly salary (USD) for a developer profile |
+| `POST /curve` | Predicted salary from 0 to 30 years of experience, for the chart |
+| `GET /meta` | USD→EUR rate and the model's mean error |
 | `POST /estimate` | Annual salary (€) for a job offer in Portugal, from its title and your skills |
 
 ```json
@@ -148,6 +160,10 @@ POST /predict
 
 → { "salario_anual_usd": 29945, "salario_mensal_usd": 2495 }
 ```
+
+| Prediction for a back-end developer in Germany | Unknown values are rejected with a clear error |
+| --- | --- |
+| ![POST /predict returning the annual and monthly salary](docs/media/predict.png) | ![POST /predict returning a 422 for an unknown country](docs/media/validation.png) |
 
 ## Limitations
 

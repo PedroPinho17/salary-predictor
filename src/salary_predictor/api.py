@@ -6,7 +6,12 @@ from typing import Annotated
 import joblib
 # Depends: injecção de dependências (passa o modelo aos endpoints automaticamente)
 # FastAPI: framework da API HTTP | HTTPException: erros com código HTTP (ex. 422)
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
+# FileResponse: devolve um ficheiro (a página) | StaticFiles: serve CSS/JS da pasta static/
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 # BaseModel: schema de pedido/resposta | Field: validação (min/max, etc.)
 from pydantic import BaseModel, Field
 
@@ -18,6 +23,16 @@ from salary_predictor.compare_radar import USD_PARA_EUR, anos, funcao
 
 # Cria a app; o título aparece na documentação automática (/docs)
 app = FastAPI(title="Salary Predictor")
+
+# Interface web (HTML + CSS + JS simples, sem build) — servida pela própria API
+STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+# Erro médio do Random Forest em validação cruzada 5-fold (ver README). A página usa-o
+# para mostrar a margem típica da previsão.
+MAE_USD = 26_233
+# Anos mostrados no gráfico de evolução da página
+ANOS_CURVA = list(range(0, 31))
 
 
 @lru_cache
@@ -54,6 +69,30 @@ class Previsao(BaseModel):
     salario_mensal_usd: int
 
 
+class Curva(BaseModel):
+    """Resposta do POST /curve — salário previsto para cada ano de experiência."""
+    anos: list[int]
+    salario_anual_usd: list[int]
+
+
+class Meta(BaseModel):
+    """Constantes de que a página precisa (conversão de moeda e margem de erro)."""
+    usd_para_eur: float
+    mae_usd: int
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """Página com o formulário e o salário estimado."""
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/meta", response_model=Meta)
+def meta() -> Meta:
+    """Taxa USD→EUR e erro médio do modelo, para a página."""
+    return Meta(usd_para_eur=USD_PARA_EUR, mae_usd=MAE_USD)
+
+
 @app.get("/health")
 def health() -> dict:
     """Healthcheck simples: a API está de pé?"""
@@ -66,9 +105,8 @@ def options(model: Model) -> dict[str, list[str]]:
     return {**opcoes(model), "langs": LANGS}
 
 
-@app.post("/predict", response_model=Previsao)
-def predict(p: Perfil, model: Model) -> Previsao:
-    """Recebe um perfil, valida categorias/langs e devolve salário anual e mensal."""
+def validar(p: Perfil, model) -> None:
+    """Dá erro 422 se o perfil tiver categorias ou linguagens que o modelo não conhece."""
     validos = opcoes(model)  # categorias que o modelo conhece
     # Mapeia campos do pedido → nomes das colunas do encoder
     campos = {"Country": p.country, "EdLevel": p.ed_level,
@@ -83,11 +121,27 @@ def predict(p: Perfil, model: Model) -> Previsao:
         # 422 = Unprocessable Entity (dados inválidos)
         raise HTTPException(status_code=422, detail=erros)
 
+
+@app.post("/predict", response_model=Previsao)
+def predict(p: Perfil, model: Model) -> Previsao:
+    """Recebe um perfil, valida categorias/langs e devolve salário anual e mensal."""
+    validar(p, model)
     # Monta a linha no formato do treino e pede a previsão
     row = make_row(p.country, p.years, p.dev_type, p.langs, p.ed_level, p.remote_work)
     anual = float(model.predict(to_frame([row]))[0])
     # round() → inteiros limpos para a resposta JSON
     return Previsao(salario_anual_usd=round(anual), salario_mensal_usd=round(anual / 12))
+
+
+@app.post("/curve", response_model=Curva)
+def curve(p: Perfil, model: Model) -> Curva:
+    """Salário previsto de 0 a 30 anos de experiência para o mesmo perfil (o campo years é ignorado)."""
+    validar(p, model)
+    # Uma só chamada ao modelo com 21 linhas, em vez de 21 pedidos
+    rows = [make_row(p.country, a, p.dev_type, p.langs, p.ed_level, p.remote_work)
+            for a in ANOS_CURVA]
+    previsoes = model.predict(to_frame(rows))
+    return Curva(anos=ANOS_CURVA, salario_anual_usd=[round(float(v)) for v in previsoes])
 
 
 # Estimativa de salário para uma oferta do Radar

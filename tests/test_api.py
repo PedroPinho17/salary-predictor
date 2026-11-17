@@ -43,3 +43,40 @@ def test_options_lista_valores_aceites(client):
     assert r.status_code == 200
     assert "Portugal" in r.json()["Country"]
     assert "Python" in r.json()["langs"]
+
+
+def test_curve_devolve_um_valor_por_ano(client):
+    r = client.post("/curve", json={"years": 5})
+    assert r.status_code == 200
+    curva = r.json()
+    assert curva["anos"] == list(range(31))
+    assert len(curva["salario_anual_usd"]) == 31
+    # No modelo sintético o salário sobe com a experiência
+    assert curva["salario_anual_usd"][-1] > curva["salario_anual_usd"][0]
+
+
+def test_curve_bate_certo_com_predict(client):
+    curva = client.post("/curve", json={"years": 7, "country": "Germany"}).json()
+    previsao = client.post("/predict", json={"years": 7, "country": "Germany"}).json()
+    assert curva["salario_anual_usd"][7] == previsao["salario_anual_usd"]
+
+
+def test_curve_valida_o_perfil(client):
+    r = client.post("/curve", json={"years": 2, "country": "portugal"})
+    assert r.status_code == 422
+
+
+def test_meta(client):
+    r = client.get("/meta")
+    assert r.status_code == 200
+    assert 0 < r.json()["usd_para_eur"] < 2
+    assert r.json()["mae_usd"] > 0
+
+
+def test_pagina_inicial(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "/static/app.js" in r.text
+    assert client.get("/static/app.js").status_code == 200
+    assert client.get("/static/style.css").status_code == 200
