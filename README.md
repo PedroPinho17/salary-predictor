@@ -7,6 +7,11 @@ Predicts the annual salary of a software developer in Europe or the United State
 A machine-learning model trained on the [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (14,602 responses from 19 European countries and the US), with a web interface, a REST API, and a check against real job offers stored in PostgreSQL.
 
 <p align="center">
+  <a href="https://salary-predictor-el8i.onrender.com"><b>▶ Try it live</b></a><br>
+  <sub>Free hosting: the first request may take up to a minute while the server wakes up.</sub>
+</p>
+
+<p align="center">
   <img src="docs/media/demo.gif" alt="Demo: changing country, experience, role and languages and watching the estimate update" width="900">
 </p>
 <p align="center"><sub>Demo at 1.5× speed · <a href="docs/media/demo.mp4">full-quality video</a></sub></p>
