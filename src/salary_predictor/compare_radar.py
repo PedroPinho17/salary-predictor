@@ -92,9 +92,23 @@ def ofertas() -> pd.DataFrame:
         select source, title, description, location, "salaryMin", "salaryMax"
         from jobs where "salaryMin" is not null or "salaryMax" is not null
     """
-    # Abre ligação, lê para DataFrame, fecha automaticamente ao sair do with
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
-        return pd.read_sql(sql, conn)
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise SystemExit("Falta DATABASE_URL (no ambiente ou num .env). Ver README.")
+    try:
+        # Abre ligação, lê para DataFrame, fecha automaticamente ao sair do with
+        with psycopg.connect(url, connect_timeout=10) as conn:
+            return pd.read_sql(sql, conn)
+    except psycopg.OperationalError as e:
+        # Mostra para onde tentou ligar (sem a password) para ser fácil perceber o problema
+        info = psycopg.conninfo.conninfo_to_dict(url)
+        destino = f"{info.get('host', '?')}:{info.get('port', 5432)}/{info.get('dbname', '?')}"
+        raise SystemExit(
+            f"Não foi possível ligar à base de dados do Radar em {destino}.\n"
+            f"  Erro: {e}\n"
+            "  - Se é local (localhost/127.0.0.1): a base está a correr? No radar-app: docker compose up -d postgres\n"
+            "  - Se é outro endereço: confirma o DATABASE_URL no .env (ou usa RADAR_ENV_FILE)."
+        ) from None
 
 
 def prever_eur(model, df: pd.DataFrame) -> list[float]:
