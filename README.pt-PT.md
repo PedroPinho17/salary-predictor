@@ -69,14 +69,14 @@ O modelo foi testado com 22 ofertas com salário, recolhidas pelo Radar, o meu a
 
 | Modelo | Erro médio | Previsão vs. real |
 |---|---|---|
-| Random Forest | 11 005 €/ano | 93% |
-| Gradient Boosting | 14 707 €/ano | 78% |
+| Random Forest | **11 589 €/ano** | **94%** |
+| Gradient Boosting | 15 053 €/ano | 81% |
 
-> ⚠️ Estes números foram obtidos com uma versão anterior: modelo só com a Europa, todas as ofertas tratadas como portuguesas e linguagens mal detetadas nas descrições ("Java" contava em ofertas de JavaScript, "Go" em "Google", etc.). Falta voltar a correr `compare_radar --compare` com a versão atual.
+<sub>"Previsão vs. real" é a mediana de previsto ÷ real: 100% quer dizer sem desvio sistemático; abaixo de 100% o modelo subestima.</sub>
 
-Com base nisto, o modelo guardado por defeito é o **Random Forest**. 22 ofertas, com anos de experiência deduzidos do título, são uma amostra demasiado pequena para separar dois modelos tão próximos, por isso é uma escolha provisória.
+No survey o Gradient Boosting fica ligeiramente à frente, mas nas ofertas reais o Random Forest é claramente melhor: erra menos e quase não tem desvio, enquanto o Gradient Boosting subestima a maioria das ofertas. Por isso o modelo guardado por defeito é o **Random Forest**. 22 ofertas, com anos de experiência deduzidos do título, continuam a ser uma amostra pequena, por isso a comparação vai ser repetida à medida que o Radar recolhe mais ofertas.
 
-Acerta melhor em funções comuns (DevOps, Java, testes, ERP) e quando o título indica a senioridade. Falha mais em funções raras ou bem pagas (ex.: "SQL Bridge Engineer") e em funções que não são de programação.
+Acerta melhor em funções comuns (DevOps, Java, testes, consultoria ERP, engenharia de plataformas/IA) e quando o título indica a senioridade. Falha mais em funções bem pagas ou especializadas que o título não revela (ex.: "SQL Bridge Engineer", "Data Scientist", "iOS Developer") e sobrestima funções mal pagas fora da programação (ex.: técnico de laboratório).
 
 ## Arquitetura
 

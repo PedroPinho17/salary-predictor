@@ -69,14 +69,14 @@ The model was tested on 22 job offers with a published salary, collected by Rada
 
 | Model | Mean error | Predicted vs. actual |
 |---|---|---|
-| Random Forest | 11,005 €/year | 93% |
-| Gradient Boosting | 14,707 €/year | 78% |
+| Random Forest | **11,589 €/year** | **94%** |
+| Gradient Boosting | 15,053 €/year | 81% |
 
-> ⚠️ These numbers come from an earlier version: a Europe-only model, every offer treated as Portuguese, and poor language detection in descriptions ("Java" matched JavaScript offers, "Go" matched "Google", etc.). `compare_radar --compare` still needs to be re-run with the current version.
+<sub>"Predicted vs. actual" is the median of predicted ÷ actual salary: 100% means no systematic bias, below 100% means the model underestimates.</sub>
 
-Based on this, the default saved model is **Random Forest**. 22 offers, with years of experience inferred from the title, is too small a sample to separate two models this close, so it is a provisional choice.
+On the survey Gradient Boosting is slightly ahead, but on real offers Random Forest is clearly better: lower error and almost no bias, while Gradient Boosting underestimates most offers. That's why **Random Forest** is the default saved model. 22 offers, with years of experience inferred from the title, is still a small sample, so the comparison will be repeated as Radar collects more offers.
 
-It does best on common roles (DevOps, Java, QA, ERP) and when the title states seniority. It does worst on rare or highly paid roles (e.g. "SQL Bridge Engineer") and on non-programming roles.
+It does best on common roles (DevOps, Java, QA, ERP consulting, platform/AI engineering) and when the title states seniority. It does worst on highly paid or specialised roles that the title doesn't reveal (e.g. "SQL Bridge Engineer", "Data Scientist", "iOS Developer"), and it overestimates low-paid roles outside programming (e.g. lab technician).
 
 ## Architecture
 
