@@ -13,7 +13,9 @@ import pandas as pd
 import psycopg  # ligar à base Postgres do Radar
 from dotenv import load_dotenv  # carregar .env para ter DATABASE_URL
 
-from salary_predictor.features import MODEL, make_row, to_frame
+from salary_predictor.features import MODEL
+# País a partir da localização da oferta e previsão (país ou mediana europeia)
+from salary_predictor.localizacao import pais, prever_usd
 # MODELOS / build / load: para --compare treinar vários modelos no survey
 from salary_predictor.train import MODELOS, build, load
 
@@ -87,7 +89,7 @@ def ofertas() -> pd.DataFrame:
     # Se RADAR_ENV_FILE estiver definido, carrega esse .env; senão o .env local
     load_dotenv(os.environ.get("RADAR_ENV_FILE"))
     sql = """
-        select source, title, description, "salaryMin", "salaryMax"
+        select source, title, description, location, "salaryMin", "salaryMax"
         from jobs where "salaryMin" is not null or "salaryMax" is not null
     """
     # Abre ligação, lê para DataFrame, fecha automaticamente ao sair do with
@@ -95,15 +97,17 @@ def ofertas() -> pd.DataFrame:
         return pd.read_sql(sql, conn)
 
 
-def features(df: pd.DataFrame) -> pd.DataFrame:
-    """Converte cada oferta numa linha de features no formato do modelo.
+def prever_eur(model, df: pd.DataFrame) -> list[float]:
+    """Salário previsto (€) para cada oferta.
 
-    Assume Portugal (Radar PT); anos/função do título; langs da descrição.
+    País pela localização (vazio → Portugal; remoto sem país → mediana europeia);
+    anos/função do título; linguagens da descrição.
     """
-    return to_frame([
-        make_row("Portugal", anos(o.title), funcao(o.title), linguagens(o.description))
+    return [
+        prever_usd(model, pais(o.location), anos(o.title), funcao(o.title),
+                   linguagens(o.description)) * USD_PARA_EUR
         for o in df.itertuples()  # itertuples = percorrer linhas de forma eficiente
-    ])
+    ]
 
 
 def main() -> None:
@@ -126,7 +130,6 @@ def main() -> None:
         print(suspeitas[["source", "title", "real_eur"]].to_string(index=False), "\n")
         df = df[df["real_eur"] >= MINIMO_ANUAL_EUR].reset_index(drop=True)
 
-    X = features(df)  # matriz de features para o modelo prever
     if a.compare:
         # Treina de novo cada modelo do survey e compara todos nas ofertas
         X_survey, y_survey = load()
@@ -138,7 +141,7 @@ def main() -> None:
     pd.set_option("display.width", 140)  # tabelas mais largas no terminal
     for nome, model in modelos.items():
         # Modelo prevê USD → converte para EUR para comparar com o Radar
-        df["previsto_eur"] = model.predict(X) * USD_PARA_EUR
+        df["previsto_eur"] = prever_eur(model, df)
         df["diferenca"] = df["previsto_eur"] - df["real_eur"]  # + = modelo acima do real
         print(f"=== {nome}")
         # Mostra tabela; título cortado a 45 chars para caber no ecrã

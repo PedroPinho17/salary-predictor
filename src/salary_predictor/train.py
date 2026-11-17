@@ -4,14 +4,14 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
-from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.base import BaseEstimator, RegressorMixin, clone
+from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from salary_predictor.features import (
-    CATS, DATA, DESCONHECIDO, EUROPA, FEATURES, LANGS, MODEL,
+    CATS, DATA, DESCONHECIDO, EUROPA, FEATURES, LANGS, MODEL, PAISES,
 )
 
 MODELOS = ("rf", "gb")
@@ -23,7 +23,7 @@ def load() -> tuple[pd.DataFrame, pd.Series]:
     df = df.dropna(subset=["ConvertedCompYearly", "Country", "WorkExp"])
     # Corta outliers: salários abaixo de 5k ou acima de 400k USD são quase sempre erros de resposta
     df = df[df["ConvertedCompYearly"].between(5_000, 400_000)]
-    df = df[df["Country"].isin(EUROPA)]
+    df = df[df["Country"].isin(PAISES)]  # Europa + EUA
 
     X = df[["Country", "WorkExp", "EdLevel", "RemoteWork", "DevType"]].copy()
     for col in ["EdLevel", "RemoteWork", "DevType"]:
@@ -54,11 +54,38 @@ def build(kind: str = "rf") -> TransformedTargetRegressor:
     )
 
 
-def cv_mae(model, X: pd.DataFrame, y: pd.Series, folds: int = 5) -> tuple[float, float]:
-    """MAE médio e desvio padrão em validação cruzada."""
+class MedianaPorPais(RegressorMixin, BaseEstimator):
+    """Base de comparação: prevê a mediana do salário no país da pessoa.
+
+    Mais exigente que a mediana global (que, com os EUA no treino, subiria muito e faria
+    qualquer modelo parecer bom na Europa). Países sem dados usam a mediana global.
+    """
+
+    def fit(self, X: pd.DataFrame, y: pd.Series):
+        self.medianas_ = pd.Series(np.asarray(y), index=X.index).groupby(X["Country"]).median()
+        self.global_ = float(np.median(y))
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        return X["Country"].map(self.medianas_).fillna(self.global_).to_numpy(dtype=float)
+
+
+def cv_mae(model, X: pd.DataFrame, y: pd.Series, folds: int = 5) -> dict[str, tuple[float, float]]:
+    """MAE médio e desvio padrão em validação cruzada: no total, só na Europa e só nos EUA.
+
+    Separado por região porque os salários dos EUA são muito mais altos: um erro médio
+    global misturaria as duas escalas e esconderia como o modelo se porta na Europa.
+    """
     cv = KFold(n_splits=folds, shuffle=True, random_state=42)
-    scores = -cross_val_score(model, X, y, cv=cv, scoring="neg_mean_absolute_error")
-    return scores.mean(), scores.std()
+    europa = X["Country"].isin(EUROPA).to_numpy()
+    erros = {"total": [], "Europa": [], "EUA": []}
+    for tr, te in cv.split(X):
+        m = clone(model).fit(X.iloc[tr], y.iloc[tr])
+        erro = np.abs(m.predict(X.iloc[te]) - y.iloc[te].to_numpy())
+        erros["total"].append(erro.mean())
+        erros["Europa"].append(erro[europa[te]].mean())
+        erros["EUA"].append(erro[~europa[te]].mean())
+    return {k: (float(np.mean(v)), float(np.std(v))) for k, v in erros.items()}
 
 
 def main() -> None:
@@ -68,13 +95,16 @@ def main() -> None:
     a = p.parse_args()
 
     X, y = load()
-    print(f"{len(X)} respostas")
+    n_europa = int(X["Country"].isin(EUROPA).sum())
+    print(f"{len(X)} respostas ({n_europa} Europa, {len(X) - n_europa} EUA)")
 
-    candidatos = {"base": DummyRegressor(strategy="median")}
+    candidatos = {"base": MedianaPorPais()}
     candidatos |= {k: build(k) for k in (MODELOS if a.compare else (a.model,))}
+    print("MAE em $/ano, validação cruzada 5-fold (média ± desvio)")
     for nome, m in candidatos.items():
-        media, desvio = cv_mae(m, X, y)
-        print(f"{nome:>4}: {media:,.0f} ± {desvio:,.0f} $/ano (MAE, 5-fold CV)")
+        res = cv_mae(m, X, y)
+        print(f"{nome:>4}: " + " | ".join(f"{k} {media:,.0f} ± {desvio:,.0f}"
+                                          for k, (media, desvio) in res.items()))
 
     model = build(a.model).fit(X, y)
     MODEL.parent.mkdir(exist_ok=True)

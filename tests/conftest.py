@@ -8,7 +8,7 @@ from salary_predictor.api import app, get_model
 from salary_predictor.features import DESCONHECIDO, LANGS, make_row, to_frame
 from salary_predictor.train import build
 
-PAISES = {"Portugal": 1.0, "Germany": 2.0}
+PAISES = {"Portugal": 1.0, "Germany": 2.0, "United States of America": 4.0}
 DEV_TYPES = ["Developer, full-stack", "Developer, back-end"]
 
 

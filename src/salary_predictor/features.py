@@ -12,11 +12,15 @@ if not DATA.exists():
     DATA = ROOT / "data" / "results.csv.gz"
 MODEL = ROOT / "models" / "salary_model.joblib"  # modelo treinado
 
-# Países europeus usados no filtro de treino
+# Países europeus usados no treino (e na "média europeia" das ofertas remotas)
 EUROPA = ["Portugal", "Spain", "France", "Germany", "Italy", "Netherlands", "Belgium",
           "Ireland", "Poland", "United Kingdom of Great Britain and Northern Ireland",
           "Sweden", "Switzerland", "Austria", "Denmark", "Norway", "Finland",
           "Czech Republic", "Romania", "Greece"]
+# EUA: para as ofertas remotas americanas não serem estimadas com salários europeus
+EUA = "United States of America"
+# Todos os países do treino
+PAISES = [*EUROPA, EUA]
 # Linguagens → cada uma vira uma coluna 0/1
 LANGS = ["Python", "JavaScript", "TypeScript", "Java", "C#", "SQL", "Go", "Rust", "PHP"]
 # Colunas de texto que o OneHotEncoder trata

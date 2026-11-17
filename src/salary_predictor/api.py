@@ -20,6 +20,7 @@ from salary_predictor.features import (
 )
 
 from salary_predictor.compare_radar import USD_PARA_EUR, anos, funcao
+from salary_predictor.localizacao import pais, prever_usd
 
 # Cria a app; o título aparece na documentação automática (/docs)
 app = FastAPI(title="Salary Predictor")
@@ -28,9 +29,10 @@ app = FastAPI(title="Salary Predictor")
 STATIC = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
-# Erro médio do Random Forest em validação cruzada 5-fold (ver README). A página usa-o
-# para mostrar a margem típica da previsão.
-MAE_USD = 26_233
+# Erro médio do Random Forest em validação cruzada 5-fold, por região (ver README e
+# `train --compare`). A página usa-o para mostrar a margem típica da previsão.
+MAE_USD_EUROPA = 26_139
+MAE_USD_EUA = 45_325
 # Anos mostrados no gráfico de evolução da página
 ANOS_CURVA = list(range(0, 31))
 
@@ -78,7 +80,8 @@ class Curva(BaseModel):
 class Meta(BaseModel):
     """Constantes de que a página precisa (conversão de moeda e margem de erro)."""
     usd_para_eur: float
-    mae_usd: int
+    mae_usd_europa: int
+    mae_usd_eua: int
 
 
 @app.get("/", include_in_schema=False)
@@ -90,7 +93,7 @@ def index() -> FileResponse:
 @app.get("/meta", response_model=Meta)
 def meta() -> Meta:
     """Taxa USD→EUR e erro médio do modelo, para a página."""
-    return Meta(usd_para_eur=USD_PARA_EUR, mae_usd=MAE_USD)
+    return Meta(usd_para_eur=USD_PARA_EUR, mae_usd_europa=MAE_USD_EUROPA, mae_usd_eua=MAE_USD_EUA)
 
 
 @app.get("/health")
@@ -150,18 +153,23 @@ class Oferta(BaseModel):
     title: str
     years: float | None = Field(default=None, ge=0, le=50)  # se faltar, deduz do título
     skills: list[str] = []  # skills do CV; só contam as que estão em LANGS
+    # Localização da oferta em texto livre ("Lisboa", "Remoto (USA)", "Remoto (Anywhere)"...).
+    # Sem localização ou não reconhecida → Portugal. Ver localizacao.py.
+    location: str | None = Field(default=None, max_length=200)
 
 # Resposta do POST /estimate
 class Estimativa(BaseModel):
     salario_anual_eur: int
+    # País usado na estimativa, ou "Europe" (mediana dos países europeus) para remoto sem país
+    base: str
 
 # Endpoint para estimar o salário para uma oferta do Radar
 @app.post("/estimate", response_model=Estimativa)
 def estimate(o: Oferta, model: Model) -> Estimativa:
-    """Salário anual estimado (€) para uma oferta de informática em Portugal."""
+    """Salário anual estimado (€) para uma oferta, no país indicado pela localização."""
     skills = {s.lower() for s in o.skills}
     langs = [lang for lang in LANGS if lang.lower() in skills]
     years = o.years if o.years is not None else anos(o.title)
-    row = make_row("Portugal", years, funcao(o.title), langs)
-    eur = float(model.predict(to_frame([row]))[0]) * USD_PARA_EUR
-    return Estimativa(salario_anual_eur=int(round(eur, -3)))
+    base = pais(o.location)
+    eur = prever_usd(model, base, years, funcao(o.title), langs) * USD_PARA_EUR
+    return Estimativa(salario_anual_eur=int(round(eur, -3)), base=base)

@@ -70,7 +70,7 @@ def test_meta(client):
     r = client.get("/meta")
     assert r.status_code == 200
     assert 0 < r.json()["usd_para_eur"] < 2
-    assert r.json()["mae_usd"] > 0
+    assert 0 < r.json()["mae_usd_europa"] < r.json()["mae_usd_eua"]
 
 
 def test_pagina_inicial(client):
@@ -80,3 +80,31 @@ def test_pagina_inicial(client):
     assert "/static/app.js" in r.text
     assert client.get("/static/app.js").status_code == 200
     assert client.get("/static/style.css").status_code == 200
+
+
+def test_estimate_sem_localizacao_usa_portugal(client):
+    r = client.post("/estimate", json={"title": "Backend Developer", "years": 3})
+    assert r.status_code == 200
+    assert r.json()["base"] == "Portugal"
+    assert r.json()["salario_anual_eur"] > 0
+
+
+def test_estimate_oferta_americana_paga_mais(client):
+    oferta = {"title": "Backend Developer", "years": 3}
+    pt = client.post("/estimate", json={**oferta, "location": "Lisboa"}).json()
+    us = client.post("/estimate", json={**oferta, "location": "Remoto (USA)"}).json()
+    assert us["base"] == "United States of America"
+    assert us["salario_anual_eur"] > pt["salario_anual_eur"]
+
+
+def test_estimate_remoto_sem_pais_usa_media_europeia(client):
+    r = client.post("/estimate", json={"title": "Backend Developer", "location": "Remoto (Anywhere)"})
+    assert r.status_code == 200
+    assert r.json()["base"] == "Europe"
+
+
+def test_estimate_sem_localizacao_igual_ao_antigo(client):
+    """Quem não envia location (versão antiga do Radar) continua a receber a estimativa portuguesa."""
+    sem = client.post("/estimate", json={"title": "Java Developer"}).json()
+    com = client.post("/estimate", json={"title": "Java Developer", "location": "Portugal"}).json()
+    assert sem == com

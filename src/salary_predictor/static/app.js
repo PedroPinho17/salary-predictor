@@ -6,7 +6,7 @@
 const TEXT = {
   pt: {
     title: "Quanto deverias ganhar?",
-    subtitle: "Estimativa do salário anual de um programador na Europa, com um modelo treinado em 9 684 respostas do Stack Overflow Developer Survey 2025.",
+    subtitle: "Estimativa do salário anual de um programador na Europa e nos EUA, com um modelo treinado em 14 602 respostas do Stack Overflow Developer Survey 2025.",
     profile: "O teu perfil", country: "País", experience: "Experiência profissional",
     role: "Função", education: "Formação", remote: "Modelo de trabalho", languages: "Linguagens que usas",
     estimate: "Salário estimado", perYear: "/ ano", perMonth: "/ mês (12 meses)",
@@ -19,7 +19,7 @@ const TEXT = {
   },
   en: {
     title: "How much should you earn?",
-    subtitle: "Annual salary estimate for a software developer in Europe, from a model trained on 9,684 responses to the Stack Overflow Developer Survey 2025.",
+    subtitle: "Annual salary estimate for a software developer in Europe and the US, from a model trained on 14,602 responses to the Stack Overflow Developer Survey 2025.",
     profile: "Your profile", country: "Country", experience: "Professional experience",
     role: "Role", education: "Education", remote: "Work arrangement", languages: "Languages you use",
     estimate: "Estimated salary", perYear: "/ year", perMonth: "/ month (12 months)",
@@ -46,6 +46,7 @@ const LABELS = {
     "Romania": ["Roménia", "Romania"], "Spain": ["Espanha", "Spain"],
     "Sweden": ["Suécia", "Sweden"], "Switzerland": ["Suíça", "Switzerland"],
     "United Kingdom of Great Britain and Northern Ireland": ["Reino Unido", "United Kingdom"],
+    "United States of America": ["Estados Unidos", "United States"],
   },
   EdLevel: {
     "Desconhecido": ["Prefiro não indicar", "Prefer not to say"],
@@ -100,6 +101,7 @@ const LABELS = {
     "Other (please specify):": ["Outra", "Other"],
   },
 };
+const US = "United States of America";
 const HIDDEN = new Set(["Retired"]); // não faz sentido estimar salário para reformados
 const DEFAULTS = { country: "Portugal", years: 3, dev_type: "Developer, full-stack",
                    ed_level: "Desconhecido", remote_work: "Desconhecido" };
@@ -110,7 +112,7 @@ const form = $("#form");
 const state = {
   lang: pick("lang", ["pt", "en"], navigator.language?.startsWith("pt") ? "pt" : "en"),
   currency: pick("currency", ["EUR", "USD"], "EUR"),
-  options: null, meta: { usd_para_eur: 0.87, mae_usd: 26233 },
+  options: null, meta: { usd_para_eur: 0.87, mae_usd_europa: 26139, mae_usd_eua: 45325 },
   langs: new Set(["JavaScript", "TypeScript", "Python", "Java", "SQL"]),
   result: null, curve: null, shown: 0,
 };
@@ -235,7 +237,9 @@ function render(animate = false) {
   if (animate && !reduce && state.shown) countTo(state.shown, target);
   else paintAmount(target);
   state.shown = target;
-  $("#margin").textContent = t().margin(money(state.meta.mae_usd));
+  // O erro médio nos EUA é maior (salários mais altos), por isso a margem depende do país
+  const mae = form.elements.country.value === US ? state.meta.mae_usd_eua : state.meta.mae_usd_europa;
+  $("#margin").textContent = t().margin(money(mae));
   drawChart();
 }
 

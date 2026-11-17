@@ -2,9 +2,9 @@
 
 <p align="right"><a href="README.md">English</a> · <b>Português</b></p>
 
-Prevê o salário anual de um programador na Europa a partir do país, anos de experiência, função, formação e linguagens que usa.
+Prevê o salário anual de um programador na Europa ou nos Estados Unidos a partir do país, anos de experiência, função, formação e linguagens que usa.
 
-Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (9 684 respostas de 19 países europeus), com uma interface web, uma API REST e um teste com ofertas de emprego reais em Portugal guardadas em PostgreSQL.
+Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (14 602 respostas de 19 países europeus e dos EUA), com uma interface web, uma API REST e um teste com ofertas de emprego reais guardadas em PostgreSQL.
 
 <p align="center">
   <img src="docs/media/demo.gif" alt="Demo: mudar país, experiência, função e linguagens e ver a estimativa a atualizar" width="900">
@@ -17,15 +17,16 @@ Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 20
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg-4169E1?logo=postgresql&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-sem%20framework-F7DF1E?logo=javascript&logoColor=black)
-![pytest](https://img.shields.io/badge/testes-36%20a%20passar-0A9EDC?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/testes-67%20a%20passar-0A9EDC?logo=pytest&logoColor=white)
 
 ## Funcionalidades
 
 - **Interface web**: preenches o perfil e a estimativa atualiza na hora, com um gráfico da evolução do salário com a experiência. Português e inglês, € ou $, modo escuro, funciona no telemóvel.
 - **Previsão de salário**: salário anual e mensal (USD) para qualquer combinação de país, experiência, função, formação, trabalho remoto e linguagens.
-- **Dois modelos, comparados de forma justa**: Random Forest e Gradient Boosting, avaliados contra uma base (mediana) com validação cruzada de 5 partições.
-- **API REST**: FastAPI com documentação interativa. `POST /predict` para um perfil, `POST /estimate` para uma oferta de emprego (título + skills do CV, resultado em €).
+- **Dois modelos, comparados de forma justa**: Random Forest e Gradient Boosting, avaliados contra uma base (mediana de cada país) com validação cruzada de 5 partições, com o erro da Europa e dos EUA medido em separado.
+- **API REST**: FastAPI com documentação interativa. `POST /predict` para um perfil, `POST /estimate` para uma oferta de emprego (título, skills do CV e localização, resultado em €).
 - **Validação rigorosa**: valores desconhecidos (ex.: `"portugal"` em minúsculas) dão erro 422 com o motivo, em vez de uma previsão silenciosamente errada. `GET /options` lista todos os valores aceites.
+- **Estimativa conforme a localização**: a localização da oferta escolhe o país: "Lisboa" → Portugal, "Remoto (USA)" → EUA, "Berlin" → Alemanha. Ofertas remotas sem país ("Anywhere", "Europe", "EMEA") recebem a mediana dos países europeus.
 - **Teste com o mundo real**: o `compare_radar` lê ofertas com salário da base de dados PostgreSQL do Radar e mede o erro do modelo.
 - **Linha de comandos**: `salary-predictor --years 2` para uma previsão rápida no terminal.
 - **Pronto a usar**: os dados do survey e o modelo treinado estão incluídos no repositório.
@@ -40,17 +41,17 @@ Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 20
 
 ## Resultados
 
-Erro médio absoluto (MAE) em validação cruzada com 5 partições:
+Erro médio absoluto (MAE) em validação cruzada com 5 partições, separado por região porque os salários dos EUA estão numa escala muito mais alta:
 
-| Modelo | Erro médio |
-|---|---|
-| Base (mediana) | 34 808 ± 778 $/ano |
-| Random Forest | 26 233 ± 569 $/ano (25% melhor que a base) |
-| Gradient Boosting | **25 938 ± 477 $/ano** |
+| Modelo | Europa | Estados Unidos |
+|---|---|---|
+| Base (mediana de cada país) | 31 221 ± 432 $/ano | 55 905 ± 1 223 $/ano |
+| Random Forest | 26 139 ± 378 $/ano (16% melhor) | 45 325 ± 689 $/ano (19% melhor) |
+| Gradient Boosting | **25 328 ± 281 $/ano** | **44 321 ± 826 $/ano** |
 
 <p align="center"><img src="docs/media/mae.png" alt="Erro em validação cruzada por modelo" width="720"></p>
 
-No survey, os dois modelos estão praticamente empatados (a diferença é menor que o desvio entre partições). Os fatores com mais peso são o **país** e os **anos de experiência**:
+Os dois modelos estão próximos (o Gradient Boosting fica ligeiramente à frente). Os fatores com mais peso são o **país** e os **anos de experiência**:
 
 | Por país (5 anos de experiência) | Por anos de experiência |
 | --- | --- |
@@ -58,20 +59,22 @@ No survey, os dois modelos estão praticamente empatados (a diferença é menor 
 
 <sub>Gráficos gerados com o modelo incluído, para um programador full-stack com a stack por omissão (JavaScript, TypeScript, Python, Java, SQL).</sub>
 
+**Juntar os EUA não piorou a Europa.** Antes de juntar os dados dos EUA, comparei as duas versões nas mesmas partições de teste europeias: o Random Forest ficou nos ~26 100 $/ano (26 120 só com a Europa vs 26 139 com os EUA) e o Gradient Boosting melhorou ligeiramente (25 847 → 25 328).
+
 O notebook [`01-explorar`](notebooks/01-explorar.ipynb) tem a análise exploratória e também uma Regressão Linear (28 364 $/ano numa única divisão treino/teste).
 
 ### Teste com ofertas reais (Radar)
 
-O modelo foi testado com 22 ofertas portuguesas com salário, recolhidas pelo Radar, o meu assistente de procura de emprego (ITJobs e Landing.jobs).
+O modelo foi testado com 22 ofertas com salário, recolhidas pelo Radar, o meu assistente de procura de emprego (ITJobs e Landing.jobs).
 
 | Modelo | Erro médio | Previsão vs. real |
 |---|---|---|
 | Random Forest | 11 005 €/ano | 93% |
 | Gradient Boosting | 14 707 €/ano | 78% |
 
-> ⚠️ Estes números foram obtidos com uma versão anterior do `compare_radar`, que detetava mal as linguagens nas descrições ("Java" contava em ofertas de JavaScript, "Go" em "Google", etc.). Falta voltar a correr `compare_radar --compare` com a versão corrigida.
+> ⚠️ Estes números foram obtidos com uma versão anterior: modelo só com a Europa, todas as ofertas tratadas como portuguesas e linguagens mal detetadas nas descrições ("Java" contava em ofertas de JavaScript, "Go" em "Google", etc.). Falta voltar a correr `compare_radar --compare` com a versão atual.
 
-Com base nisto, o modelo guardado por defeito é o **Random Forest**. 22 ofertas, com anos de experiência deduzidos do título, são uma amostra demasiado pequena para separar dois modelos que empatam no survey, por isso é uma escolha provisória.
+Com base nisto, o modelo guardado por defeito é o **Random Forest**. 22 ofertas, com anos de experiência deduzidos do título, são uma amostra demasiado pequena para separar dois modelos tão próximos, por isso é uma escolha provisória.
 
 Acerta melhor em funções comuns (DevOps, Java, testes, ERP) e quando o título indica a senioridade. Falha mais em funções raras ou bem pagas (ex.: "SQL Bridge Engineer") e em funções que não são de programação.
 
@@ -79,19 +82,19 @@ Acerta melhor em funções comuns (DevOps, Java, testes, ERP) e quando o título
 
 ```mermaid
 flowchart LR
-    S[(Survey 2025<br/>results.csv.gz)] --> T[train.py<br/>limpeza + filtro Europa]
+    S[(Survey 2025<br/>results.csv.gz)] --> T[train.py<br/>limpeza + Europa e EUA]
     T --> P[Pipeline<br/>OneHotEncoder → Random Forest<br/>sobre log do salário]
     P --> M[(salary_model.joblib)]
     M --> C[CLI]
     M --> A[FastAPI]
     A -- página / + /predict /curve --> U[Browser<br/>HTML + CSS + JS]
-    A -- /predict /estimate --> X[Outros clientes]
+    RA[Radar] -->|"/estimate: título, skills, localização"| A
     R[(Radar<br/>PostgreSQL)] -- ofertas --> CR[compare_radar.py]
     M --> CR
     CR --> E[Erro vs. salários reais]
 ```
 
-**Treino:** `survey → remove valores em falta e outliers (< 5k ou > 400k $) → 19 países europeus → features (país, experiência, formação, trabalho remoto, função, 9 linguagens como 0/1) → modelo treinado sobre log(salário)`
+**Treino:** `survey → remove valores em falta e outliers (< 5k ou > 400k $) → 19 países europeus + EUA → features (país, experiência, formação, trabalho remoto, função, 9 linguagens como 0/1) → modelo treinado sobre log(salário)`
 
 ### Decisões de design
 
@@ -99,8 +102,11 @@ flowchart LR
 | --- | --- |
 | Treinar sobre `log(salário)` | Os salários têm cauda longa à direita. Prever o log evita que meia dúzia de salários muito altos dominem o erro. |
 | `min_frequency=20` no encoder | Categorias raras são agrupadas em vez de virarem colunas com meia dúzia de exemplos. |
-| Base com a mediana | Um modelo só é útil se for melhor que "prever sempre a mediana". É, por 25%. |
-| Validação cruzada em vez de uma só divisão | 5 partições dão uma média e um desvio, o que mostra que os dois modelos estão mesmo empatados. |
+| Base com a mediana de cada país | Um modelo só é útil se for melhor que "prever a mediana do teu país". Uma mediana global seria fácil demais de bater com os salários dos EUA nos dados. |
+| Treinar com a Europa e os EUA juntos | Os dados dos EUA permitem dar salários americanos às ofertas remotas americanas. Medido nas mesmas partições, não piorou as previsões europeias. |
+| Erro medido por região | Um só MAE misturaria duas escalas de salários e esconderia como o modelo se porta na Europa. |
+| Remoto sem país → mediana europeia | "Anywhere" ou "Europe" não diz que salário se aplica. A mediana dos 19 países europeus é um meio-termo neutro; localizações desconhecidas ficam em Portugal, onde o Radar procura sobretudo. |
+| Validação cruzada em vez de uma só divisão | 5 partições dão uma média e um desvio, o que mostra quão próximos os dois modelos estão. |
 | Rejeitar valores desconhecidos com 422 | O encoder ignoraria em silêncio uma categoria desconhecida e devolvia na mesma um número. Um erro explícito é mais seguro. |
 | `features.py` partilhado | Treino, CLI, API e `compare_radar` constroem as features da mesma forma, por isso não ficam dessincronizados. |
 | HTML/CSS/JS simples servido pelo FastAPI | Um formulário não precisa de React nem de build. Um só comando arranca tudo, e a página só oferece valores que o modelo conhece (vêm de `GET /options`). |
@@ -151,15 +157,22 @@ Os dados do survey são publicados pela Stack Overflow sob a licença [Open Data
 | `GET /options` | Valores aceites para país, função, formação, trabalho remoto e linguagens |
 | `POST /predict` | Salário anual e mensal (USD) para um perfil |
 | `POST /curve` | Salário previsto de 0 a 30 anos de experiência, para o gráfico |
-| `GET /meta` | Taxa USD→EUR e erro médio do modelo |
-| `POST /estimate` | Salário anual (€) para uma oferta em Portugal, a partir do título e das tuas skills |
+| `GET /meta` | Taxa USD→EUR e erro médio do modelo por região |
+| `POST /estimate` | Salário anual (€) para uma oferta, a partir do título, das tuas skills e da localização |
 
 ```json
 POST /predict
 { "country": "Portugal", "years": 2 }
 
-→ { "salario_anual_usd": 29945, "salario_mensal_usd": 2495 }
+→ { "salario_anual_usd": 29529, "salario_mensal_usd": 2461 }
+
+POST /estimate
+{ "title": "Senior Backend Engineer", "location": "Remoto (USA)" }
+
+→ { "salario_anual_eur": 124000, "base": "United States of America" }
 ```
+
+`base` diz que país foi usado na estimativa, ou `"Europe"` para ofertas remotas sem país.
 
 | Previsão para um back-end developer na Alemanha | Valores desconhecidos são rejeitados com um erro claro |
 | --- | --- |
@@ -168,6 +181,8 @@ POST /predict
 ## Limitações
 
 - O survey só tem programadores e não inclui empresa, setor nem cidade, por isso funções raras ou fora da programação ficam mal estimadas.
+- Só cobre 19 países europeus e os EUA. Ofertas de outros sítios são estimadas como Portugal (localização desconhecida) ou com a mediana europeia (vários países).
+- A localização é comparada com uma lista de nomes de países e cidades; uma grafia invulgar cai em Portugal.
 - As ofertas não dizem os anos de experiência: o `compare_radar` deduz pelo título (Junior = 1, Senior/Lead = 7, resto = 3).
 - Ofertas com salário abaixo de 6 000 €/ano são excluídas da comparação por serem provavelmente valores mensais.
 - A conversão de USD para EUR usa uma taxa fixa aproximada (0,87).

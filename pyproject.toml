@@ -1,7 +1,7 @@
 [project]
 name = "salary-predictor"
 version = "0.1.0"
-description = "Prevê o salário anual de programadores na Europa a partir do Stack Overflow Developer Survey"
+description = "Prevê o salário anual de programadores na Europa e nos EUA a partir do Stack Overflow Developer Survey"
 readme = "README.md"
 authors = [
     { name = "Pedro Pinho", email = "pedropinho364@gmail.com" }
