@@ -97,8 +97,11 @@ def ofertas() -> pd.DataFrame:
         raise SystemExit("Falta DATABASE_URL (no ambiente ou num .env). Ver README.")
     try:
         # Abre ligação, lê para DataFrame, fecha automaticamente ao sair do with
-        with psycopg.connect(url, connect_timeout=10) as conn:
-            return pd.read_sql(sql, conn)
+        with psycopg.connect(url, connect_timeout=10) as conn, conn.cursor() as cur:
+            cur.execute(sql)
+            # Lê com o cursor do psycopg (o pd.read_sql avisa que só testa SQLAlchemy)
+            colunas = [c.name for c in cur.description]
+            return pd.DataFrame(cur.fetchall(), columns=colunas)
     except psycopg.OperationalError as e:
         # Mostra para onde tentou ligar (sem a password) para ser fácil perceber o problema
         info = psycopg.conninfo.conninfo_to_dict(url)
