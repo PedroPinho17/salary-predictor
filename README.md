@@ -18,6 +18,7 @@ A machine-learning model trained on the [Stack Overflow Developer Survey 2025](h
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg-4169E1?logo=postgresql&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-no%20framework-F7DF1E?logo=javascript&logoColor=black)
 ![pytest](https://img.shields.io/badge/tests-67%20passing-0A9EDC?logo=pytest&logoColor=white)
+![Tests](https://github.com/PedroPinho17/salary-predictor/actions/workflows/tests.yml/badge.svg)
 
 ## Features
 
