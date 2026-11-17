@@ -7,6 +7,11 @@ Prevê o salário anual de um programador na Europa ou nos Estados Unidos a part
 Um modelo de machine learning treinado com o [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/) (14 602 respostas de 19 países europeus e dos EUA), com uma interface web, uma API REST e um teste com ofertas de emprego reais guardadas em PostgreSQL.
 
 <p align="center">
+  <a href="https://salary-predictor-el8i.onrender.com"><b>▶ Experimentar online</b></a><br>
+  <sub>Alojamento gratuito: o primeiro pedido pode demorar até um minuto enquanto o servidor arranca.</sub>
+</p>
+
+<p align="center">
   <img src="docs/media/demo.gif" alt="Demo: mudar país, experiência, função e linguagens e ver a estimativa a atualizar" width="900">
 </p>
 <p align="center"><sub>Demo a 1,5× · <a href="docs/media/demo.mp4">vídeo em qualidade total</a></sub></p>
